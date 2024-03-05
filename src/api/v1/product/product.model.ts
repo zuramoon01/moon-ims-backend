@@ -15,10 +15,9 @@ export const productModel = {
 				totalSellPrice: sql<number>`${products.quantity} * ${products.sellPrice}`,
 			})
 			.from(products)
-			.orderBy(desc(products.name))
 			.limit(sql.placeholder("limit"))
 			.offset(sql.placeholder("offset"))
-			.prepare("get_products");
+			.prepare("get_all_product");
 	},
 	getById: (id: Product["id"]) => {
 		return db
@@ -33,6 +32,14 @@ export const productModel = {
 			})
 			.from(products)
 			.where(eq(products.id, id));
+	},
+	getTotal: () => {
+		return db
+			.select({
+				total: sql<string>`count(*)`,
+			})
+			.from(products)
+			.prepare("get_total_product");
 	},
 	add: (product: Omit<NewProduct, "id" | "createdAt" | "updatedAt">) => {
 		return db

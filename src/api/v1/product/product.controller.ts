@@ -6,17 +6,37 @@ import { HttpStatusCode } from "../../../utils";
 export const productController = {
 	get: async (req: Request, res: Response) => {
 		try {
-			const { limit = 15, offset = 0 } = z
-				.object({ limit: z.number().optional(), offset: z.number().optional() })
-				.parse(req.body);
+			const querySchema = z.object({
+				page: z.coerce.number().default(1),
+				limit: z.coerce.number().default(15),
+			});
 
-			const products = await productModel.getAll().execute({ limit, offset });
+			const { page, limit } = querySchema.parse(req.query);
+			const offset = (page - 1) * limit;
 
-			if (!products) {
+			const [products, totalProduct] = await Promise.all([
+				productModel.getAll().execute({ limit, offset }),
+				productModel.getTotal().execute(),
+			]);
+
+			if (!products || !totalProduct) {
 				return res.sendStatus(HttpStatusCode.BAD_REQUEST);
 			}
 
-			return res.status(HttpStatusCode.OK).json(products);
+			const total =
+				totalProduct.length === 1 ? parseInt(totalProduct[0].total) : 0;
+
+			return res.status(HttpStatusCode.OK).json({
+				data: {
+					products,
+					currentPage: page,
+					totalPage: Math.ceil(total / limit),
+					from: offset + 1,
+					to: Math.min(offset + limit, total),
+					limit,
+					total,
+				},
+			});
 		} catch (e) {
 			console.error(e);
 
@@ -33,7 +53,7 @@ export const productController = {
 				return res.sendStatus(HttpStatusCode.BAD_REQUEST);
 			}
 
-			return res.status(HttpStatusCode.OK).json(product);
+			return res.status(HttpStatusCode.OK).json({ data: product[0] });
 		} catch (e) {
 			console.error(e);
 
@@ -56,8 +76,8 @@ export const productController = {
 			const createdProduct = await productModel.add(dataProduct);
 
 			return res.status(HttpStatusCode.CREATED).json({
-				message: "Berhasil menambahkan produk.",
 				data: createdProduct,
+				message: "Berhasil menambahkan produk.",
 			});
 		} catch (e) {
 			console.error(e);
@@ -93,8 +113,8 @@ export const productController = {
 			const updatedProduct = await productModel.update({ id, ...dataProduct });
 
 			return res.status(HttpStatusCode.OK).json({
-				message: "Berhasil memperbaharui produk.",
 				data: updatedProduct,
+				message: "Berhasil memperbaharui produk.",
 			});
 		} catch (e) {
 			console.error(e);
