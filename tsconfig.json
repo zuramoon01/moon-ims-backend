@@ -1,11 +1,15 @@
 {
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
     "baseUrl": "./src",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "noEmit": true,
-    "strict": true
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "commonjs",
+    "outDir": "./dist",
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2016"
   },
-  "include": ["./src/**/*"]
+  "include": [
+    "./src/**/*"
+  ]
 }
