@@ -32,7 +32,7 @@ exports.productController = {
             if (!products || !totalProduct) {
                 return res.sendStatus(utils_1.HttpStatusCode.BAD_REQUEST);
             }
-            const total = totalProduct.length === 1 ? parseInt(totalProduct[0].total) : 0;
+            const total = totalProduct.length === 1 ? Number(totalProduct[0].total) : 0;
             return res.status(utils_1.HttpStatusCode.OK).json({
                 data: {
                     products,
@@ -45,22 +45,25 @@ exports.productController = {
                 },
             });
         }
-        catch (e) {
-            console.error(e);
+        catch (error) {
+            (0, utils_1.handleError)(error, "Fungsi productController.get");
             return res.sendStatus(utils_1.HttpStatusCode.BAD_REQUEST);
         }
     }),
     getById: (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         try {
-            const { id } = zod_1.default.object({ id: zod_1.default.coerce.number() }).parse(req.params);
+            const paramsSchema = zod_1.default.object({
+                id: zod_1.default.coerce.number(),
+            });
+            const { id } = paramsSchema.parse(req.params);
             const product = yield _1.productModel.getById(id);
             if (!product) {
                 return res.sendStatus(utils_1.HttpStatusCode.BAD_REQUEST);
             }
             return res.status(utils_1.HttpStatusCode.OK).json({ data: product[0] });
         }
-        catch (e) {
-            console.error(e);
+        catch (error) {
+            (0, utils_1.handleError)(error, "Fungsi productController.getById");
             return res.status(utils_1.HttpStatusCode.BAD_REQUEST).json({
                 message: "Invalid Data.",
             });
@@ -68,22 +71,21 @@ exports.productController = {
     }),
     create: (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         try {
-            const dataProduct = zod_1.default
-                .object({
+            const bodySchema = zod_1.default.object({
                 name: zod_1.default.string(),
                 quantity: zod_1.default.number(),
                 buyPrice: zod_1.default.number(),
                 sellPrice: zod_1.default.number(),
-            })
-                .parse(req.body);
+            });
+            const dataProduct = bodySchema.parse(req.body);
             const createdProduct = yield _1.productModel.add(dataProduct);
             return res.status(utils_1.HttpStatusCode.CREATED).json({
                 data: createdProduct,
                 message: "Berhasil menambahkan produk.",
             });
         }
-        catch (e) {
-            console.error(e);
+        catch (error) {
+            (0, utils_1.handleError)(error, "Fungsi productController.create");
             return res.status(utils_1.HttpStatusCode.BAD_REQUEST).json({
                 message: "Invalid Data.",
             });
@@ -91,15 +93,17 @@ exports.productController = {
     }),
     update: (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         try {
-            const { id } = zod_1.default.object({ id: zod_1.default.coerce.number() }).parse(req.params);
-            const dataProduct = zod_1.default
-                .object({
+            const paramsSchema = zod_1.default.object({
+                id: zod_1.default.coerce.number(),
+            });
+            const { id } = paramsSchema.parse(req.params);
+            const bodySchema = zod_1.default.object({
                 name: zod_1.default.string().optional(),
                 quantity: zod_1.default.number().optional(),
                 buyPrice: zod_1.default.number().optional(),
                 sellPrice: zod_1.default.number().optional(),
-            })
-                .parse(req.body);
+            });
+            const dataProduct = bodySchema.parse(req.body);
             const { name, quantity, buyPrice, sellPrice } = dataProduct;
             const isNoUpdatedData = !name && !quantity && !buyPrice && !sellPrice;
             if (isNoUpdatedData) {
@@ -113,8 +117,8 @@ exports.productController = {
                 message: "Berhasil memperbaharui produk.",
             });
         }
-        catch (e) {
-            console.error(e);
+        catch (error) {
+            (0, utils_1.handleError)(error, "Fungsi productController.create");
             return res.status(utils_1.HttpStatusCode.BAD_REQUEST).json({
                 message: "Invalid Data.",
             });
@@ -122,14 +126,17 @@ exports.productController = {
     }),
     delete: (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         try {
-            const { id } = zod_1.default.object({ id: zod_1.default.coerce.number() }).parse(req.params);
+            const paramsSchema = zod_1.default.object({
+                id: zod_1.default.coerce.number(),
+            });
+            const { id } = paramsSchema.parse(req.params);
             yield _1.productModel.delete(id);
             return res.status(utils_1.HttpStatusCode.OK).json({
                 message: "Berhasil menghapus produk.",
             });
         }
-        catch (e) {
-            console.error(e);
+        catch (error) {
+            (0, utils_1.handleError)(error, "Fungsi productController.create");
             return res.status(utils_1.HttpStatusCode.BAD_REQUEST).json({
                 message: "Invalid Data.",
             });
