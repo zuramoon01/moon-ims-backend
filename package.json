@@ -2,14 +2,22 @@
   "name": "moon-ims-backend",
   "version": "1.0.0",
   "private": true,
+  "main": "app.ts",
   "scripts": {
-    "start": "node build/app.js",
-    "start:prod": "node dist/app.js",
+    "start": "node dist/app.js",
+    "start:dev": "node build/app.ts",
     "dev": "nodemon",
-    "build": "npx tsc",
+    "build": "rimraf dist && tsc",
     "build:clean": "rmdir dist /s /q",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "ts.check": "tsc --project tsconfig.json",
+    "add-build": "git add dist"
   },
+  "pre-commit": [
+    "ts.check",
+    "build",
+    "add-build"
+  ],
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -26,7 +34,9 @@
     "concurrently": "^8.2.2",
     "drizzle-kit": "^0.20.14",
     "nodemon": "^3.1.0",
+    "pre-commit": "^1.2.2",
     "prettier": "^3.2.5",
+    "rimraf": "^5.0.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
