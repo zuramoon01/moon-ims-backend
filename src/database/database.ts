@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 
 const { PGUSER, PGPASSWORD, PGHOST, PGDATABASE, PGPORT, PGSSL } = process.env;
 
