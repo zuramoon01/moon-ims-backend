@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.HttpStatusCode = void 0;
-exports.HttpStatusCode = {
+export const HttpStatusCode = {
     /**
      * The server has received the request headers and the client should proceed to send the request body
      * (in the case of a request for which a body needs to be sent; for example, a POST request).
@@ -315,3 +312,4 @@ exports.HttpStatusCode = {
      */
     NETWORK_AUTHENTICATION_REQUIRED: 511,
 };
+//# sourceMappingURL=http-status-code.js.map

@@ -1,10 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.db = exports.pool = void 0;
-const pg_1 = require("pg");
-const node_postgres_1 = require("drizzle-orm/node-postgres");
+import pg from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 const { PGUSER, PGPASSWORD, PGHOST, PGDATABASE, PGPORT, PGSSL } = process.env;
-exports.pool = new pg_1.Pool({
+export const pool = new pg.Pool({
     user: PGUSER,
     password: PGPASSWORD,
     host: PGHOST,
@@ -12,4 +9,5 @@ exports.pool = new pg_1.Pool({
     port: parseInt(PGPORT),
     ssl: PGSSL === "true" ? true : undefined,
 });
-exports.db = (0, node_postgres_1.drizzle)(exports.pool);
+export const db = drizzle(pool);
+//# sourceMappingURL=database.js.map

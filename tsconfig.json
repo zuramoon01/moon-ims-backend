@@ -1,15 +1,23 @@
 {
   "compilerOptions": {
-    "baseUrl": "./src",
+    "allowJs": true,
+    "baseUrl": "src",
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "module": "CommonJS",
-    "outDir": "./dist",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
     "skipLibCheck": true,
+    "target": "ES2022",
+
+    "noUncheckedIndexedAccess": true,
     "strict": true,
-    "target": "ES2016"
+
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "sourceMap": true,
+
+    "lib": ["ES2022"]
   },
-  "include": [
-    "./src/**/*"
-  ]
+  "include": ["./src/**/*"]
 }
