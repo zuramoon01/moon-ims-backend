@@ -24,6 +24,14 @@ export const productModel = {
       .offset(sql.placeholder("offset"))
       .prepare("get_all_product");
   },
+  getTotal: () => {
+    return db
+      .select({
+        total: sql<string>`count(*)`,
+      })
+      .from(products)
+      .prepare("get_total_product");
+  },
   getById: (id: Product["id"]) => {
     return db
       .select({
@@ -37,14 +45,6 @@ export const productModel = {
       })
       .from(products)
       .where(eq(products.id, id));
-  },
-  getTotal: () => {
-    return db
-      .select({
-        total: sql<string>`count(*)`,
-      })
-      .from(products)
-      .prepare("get_total_product");
   },
   add: (product: NewOrUpdateProduct) => {
     return db.insert(products).values(product).onConflictDoNothing();
