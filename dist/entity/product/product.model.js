@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../database/index.js";
 import { products, } from "./product.schema.js";
 export const productModel = {
@@ -41,6 +41,20 @@ export const productModel = {
             .from(products)
             .where(eq(products.id, id));
     },
+    getByIds: (ids) => {
+        return db
+            .select({
+            id: products.id,
+            name: products.name,
+            quantity: products.quantity,
+            buyPrice: products.buyPrice,
+            totalBuyPrice: sql `${products.quantity} * ${products.buyPrice}`,
+            sellPrice: products.sellPrice,
+            totalSellPrice: sql `${products.quantity} * ${products.sellPrice}`,
+        })
+            .from(products)
+            .where(inArray(products.id, ids));
+    },
     add: (product) => {
         return db.insert(products).values(product).onConflictDoNothing();
     },
@@ -55,6 +69,11 @@ export const productModel = {
     delete: (id) => {
         return db.transaction(async (tx) => {
             await tx.delete(products).where(eq(products.id, id));
+        });
+    },
+    deleteBulk: (ids) => {
+        return db.transaction(async (tx) => {
+            await tx.delete(products).where(inArray(products.id, ids));
         });
     },
 };

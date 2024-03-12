@@ -88,6 +88,14 @@ export const productController = {
                 sellPrice: z.number(),
             });
             const productData = bodySchema.parse(req.body);
+            if (product[0].name === productData.name &&
+                product[0].quantity === productData.quantity &&
+                product[0].buyPrice === productData.buyPrice &&
+                product[0].sellPrice === productData.sellPrice) {
+                return res.status(HttpStatusCode.BAD_REQUEST).json({
+                    message: "Tidak ada data pada produk yang dapat diperbaharui.",
+                });
+            }
             await productModel.update(id, productData);
             const productsWithConfig = await getProductsWithConfig(req);
             return res.status(HttpStatusCode.OK).json({
@@ -105,7 +113,7 @@ export const productController = {
     delete: async (req, res) => {
         try {
             const paramsSchema = z.object({
-                id: z.coerce.number(),
+                id: z.number(),
             });
             const { id } = paramsSchema.parse(req.params);
             const product = await productModel.getById(id);
@@ -115,6 +123,32 @@ export const productController = {
                 });
             }
             await productModel.delete(id);
+            const productsWithConfig = await getProductsWithConfig(req);
+            return res.status(HttpStatusCode.OK).json({
+                data: productsWithConfig,
+                message: "Berhasil menghapus produk.",
+            });
+        }
+        catch (error) {
+            handleError(error, "Fungsi productController.create");
+            return res.status(HttpStatusCode.BAD_REQUEST).json({
+                message: "Invalid Data.",
+            });
+        }
+    },
+    deleteBulk: async (req, res) => {
+        try {
+            const bodySchema = z.object({
+                ids: z.array(z.number()),
+            });
+            const { ids } = bodySchema.parse(req.body);
+            const products = await productModel.getByIds(ids);
+            if (products.length === 0 || products.length !== ids.length) {
+                return res.status(HttpStatusCode.BAD_REQUEST).json({
+                    message: "Invalid Data.",
+                });
+            }
+            await productModel.deleteBulk(ids);
             const productsWithConfig = await getProductsWithConfig(req);
             return res.status(HttpStatusCode.OK).json({
                 data: productsWithConfig,
