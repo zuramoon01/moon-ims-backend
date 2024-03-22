@@ -2,19 +2,19 @@ import z from "zod";
 import { productModel } from "./product.model.js";
 import { HttpStatusCode, handleError } from "../../util/index.js";
 const getProductsWithConfig = async (req) => {
-    const querySchema = z.object({
+    const productQuerySchema = z.object({
         page: z.coerce.number().min(1).default(1),
         limit: z.coerce.number().min(1).max(25).default(15),
     });
-    let { page, limit } = querySchema.parse(req.query);
+    let { page, limit } = productQuerySchema.parse(req.query);
     let offset = (page - 1) * limit;
     let [products, totalProduct] = await Promise.all([
         productModel.getAll().execute({ limit, offset }),
         productModel.getTotal().execute(),
     ]);
     const total = totalProduct.length === 1 ? Number(totalProduct[0]?.total) : 0;
-    // Cari produk dengan mengurangi page selama produk tidak ditemukan atau total produk tidak sama dengan 0
-    if (products.length === 0) {
+    // Cari produk dengan mengurangi page selama total produk tidak sama dengan 0 dan produk tidak ditemukan
+    if (total > 0 && products.length === 0) {
         while (offset >= total && offset !== 0) {
             page -= 1;
             offset = (page - 1) * limit;
@@ -31,8 +31,17 @@ const getProductsWithConfig = async (req) => {
         total,
     };
 };
+const productBodySchema = z.object({
+    name: z.string(),
+    quantity: z.number(),
+    buyPrice: z.number(),
+    sellPrice: z.number(),
+});
+const productParamsSchema = z.object({
+    id: z.coerce.number(),
+});
 export const productController = {
-    getAll: async (req, res) => {
+    get: async (req, res) => {
         try {
             const productsWithConfig = await getProductsWithConfig(req);
             return res.status(HttpStatusCode.OK).json({
@@ -40,7 +49,7 @@ export const productController = {
             });
         }
         catch (error) {
-            handleError(error, "Fungsi productController.getAll");
+            handleError(error, "productController.getAll");
             return res.status(HttpStatusCode.BAD_REQUEST).json({
                 message: "Invalid Data.",
             });
@@ -48,13 +57,7 @@ export const productController = {
     },
     create: async (req, res) => {
         try {
-            const bodySchema = z.object({
-                name: z.string(),
-                quantity: z.number(),
-                buyPrice: z.number(),
-                sellPrice: z.number(),
-            });
-            const productData = bodySchema.parse(req.body);
+            const productData = productBodySchema.parse(req.body);
             await productModel.add(productData);
             const productsWithConfig = await getProductsWithConfig(req);
             return res.status(HttpStatusCode.CREATED).json({
@@ -63,7 +66,7 @@ export const productController = {
             });
         }
         catch (error) {
-            handleError(error, "Fungsi productController.create");
+            handleError(error, "productController.create");
             return res.status(HttpStatusCode.BAD_REQUEST).json({
                 message: "Invalid Data.",
             });
@@ -71,23 +74,15 @@ export const productController = {
     },
     update: async (req, res) => {
         try {
-            const paramsSchema = z.object({
-                id: z.coerce.number(),
-            });
-            const { id } = paramsSchema.parse(req.params);
+            const { id } = productParamsSchema.parse(req.params);
             const product = await productModel.getById(id);
-            if (product.length === 0) {
+            if (product.length === 0 || !product[0]) {
                 return res.status(HttpStatusCode.BAD_REQUEST).json({
                     message: "Invalid Data.",
                 });
             }
-            const bodySchema = z.object({
-                name: z.string(),
-                quantity: z.number(),
-                buyPrice: z.number(),
-                sellPrice: z.number(),
-            });
-            const productData = bodySchema.parse(req.body);
+            const productData = productBodySchema.parse(req.body);
+            // Cek apakah data yang diubah sama dengan data yang ingin diubah
             if (product[0].name === productData.name &&
                 product[0].quantity === productData.quantity &&
                 product[0].buyPrice === productData.buyPrice &&
@@ -96,7 +91,9 @@ export const productController = {
                     message: "Tidak ada data pada produk yang dapat diperbaharui.",
                 });
             }
-            await productModel.update(id, productData);
+            const isPriceChange = product[0].buyPrice !== productData.buyPrice ||
+                product[0].sellPrice !== productData.sellPrice;
+            await productModel.update(id, productData, isPriceChange);
             const productsWithConfig = await getProductsWithConfig(req);
             return res.status(HttpStatusCode.OK).json({
                 data: productsWithConfig,
@@ -104,33 +101,7 @@ export const productController = {
             });
         }
         catch (error) {
-            handleError(error, "Fungsi productController.update");
-            return res.status(HttpStatusCode.BAD_REQUEST).json({
-                message: "Invalid Data.",
-            });
-        }
-    },
-    delete: async (req, res) => {
-        try {
-            const paramsSchema = z.object({
-                id: z.number(),
-            });
-            const { id } = paramsSchema.parse(req.params);
-            const product = await productModel.getById(id);
-            if (product.length === 0) {
-                return res.status(HttpStatusCode.BAD_REQUEST).json({
-                    message: "Invalid Data.",
-                });
-            }
-            await productModel.delete(id);
-            const productsWithConfig = await getProductsWithConfig(req);
-            return res.status(HttpStatusCode.OK).json({
-                data: productsWithConfig,
-                message: "Berhasil menghapus produk.",
-            });
-        }
-        catch (error) {
-            handleError(error, "Fungsi productController.create");
+            handleError(error, "productController.update");
             return res.status(HttpStatusCode.BAD_REQUEST).json({
                 message: "Invalid Data.",
             });

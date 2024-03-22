@@ -5,13 +5,10 @@ const productRouter = express.Router();
 
 productRouter
   .route("/")
-  .get(productController.getAll)
+  .get(productController.get)
   .post(productController.create)
   .delete(productController.deleteBulk);
 
-productRouter
-  .route("/:id")
-  .put(productController.update)
-  .delete(productController.delete);
+productRouter.put("/:id", productController.update);
 
 export { productRouter };

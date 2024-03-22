@@ -1,10 +1,11 @@
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../../database/index.js";
 import {
   products,
+  prices,
   type Product,
   type NewOrUpdateProduct,
-} from "./product.schema.js";
+} from "./product.migration.js";
 
 export const productModel = {
   getAll: () => {
@@ -13,12 +14,14 @@ export const productModel = {
         id: products.id,
         name: products.name,
         quantity: products.quantity,
-        buyPrice: products.buyPrice,
-        totalBuyPrice: sql<number>`${products.quantity} * ${products.buyPrice}`,
-        sellPrice: products.sellPrice,
-        totalSellPrice: sql<number>`${products.quantity} * ${products.sellPrice}`,
+        buyPrice: prices.buyPrice,
+        totalBuyPrice: sql<number>`${products.quantity} * ${prices.buyPrice}`,
+        sellPrice: prices.sellPrice,
+        totalSellPrice: sql<number>`${products.quantity} * ${prices.sellPrice}`,
       })
       .from(products)
+      .innerJoin(prices, eq(products.id, prices.productId))
+      .where(and(isNull(products.deletedAt), isNull(prices.validTo)))
       .orderBy(desc(products.id))
       .limit(sql.placeholder("limit"))
       .offset(sql.placeholder("offset"))
@@ -30,21 +33,30 @@ export const productModel = {
         total: sql<string>`count(*)`,
       })
       .from(products)
+      .innerJoin(prices, eq(prices.productId, products.id))
+      .where(and(isNull(products.deletedAt), isNull(prices.validTo)))
       .prepare("get_total_product");
   },
-  getById: (id: Product["id"]) => {
+  getById: (productId: Product["id"]) => {
     return db
       .select({
         id: products.id,
         name: products.name,
         quantity: products.quantity,
-        buyPrice: products.buyPrice,
-        totalBuyPrice: sql<number>`${products.quantity} * ${products.buyPrice}`,
-        sellPrice: products.sellPrice,
-        totalSellPrice: sql<number>`${products.quantity} * ${products.sellPrice}`,
+        buyPrice: prices.buyPrice,
+        totalBuyPrice: sql<number>`${products.quantity} * ${prices.buyPrice}`,
+        sellPrice: prices.sellPrice,
+        totalSellPrice: sql<number>`${products.quantity} * ${prices.sellPrice}`,
       })
       .from(products)
-      .where(eq(products.id, id));
+      .innerJoin(prices, eq(prices.productId, products.id))
+      .where(
+        and(
+          isNull(products.deletedAt),
+          eq(products.id, productId),
+          isNull(prices.validTo),
+        ),
+      );
   },
   getByIds: (ids: Array<Product["id"]>) => {
     return db
@@ -52,33 +64,82 @@ export const productModel = {
         id: products.id,
         name: products.name,
         quantity: products.quantity,
-        buyPrice: products.buyPrice,
-        totalBuyPrice: sql<number>`${products.quantity} * ${products.buyPrice}`,
-        sellPrice: products.sellPrice,
-        totalSellPrice: sql<number>`${products.quantity} * ${products.sellPrice}`,
+        buyPrice: prices.buyPrice,
+        totalBuyPrice: sql<number>`${products.quantity} * ${prices.buyPrice}`,
+        sellPrice: prices.sellPrice,
+        totalSellPrice: sql<number>`${products.quantity} * ${prices.sellPrice}`,
       })
       .from(products)
-      .where(inArray(products.id, ids));
+      .innerJoin(prices, eq(prices.productId, products.id))
+      .where(
+        and(
+          isNull(products.deletedAt),
+          inArray(products.id, ids),
+          isNull(prices.validTo),
+        ),
+      );
   },
-  add: (product: NewOrUpdateProduct) => {
-    return db.insert(products).values(product).onConflictDoNothing();
-  },
-  update: (productId: Product["id"], product: NewOrUpdateProduct) => {
+  add: ({ name, quantity, buyPrice, sellPrice }: NewOrUpdateProduct) => {
     return db.transaction(async (tx) => {
-      return await tx
-        .update(products)
-        .set({ ...product, updatedAt: sql`current_timestamp` })
-        .where(eq(products.id, productId));
+      const createdProduct = await tx
+        .insert(products)
+        .values({ name, quantity })
+        .onConflictDoNothing()
+        .returning({ id: products.id });
+
+      if (createdProduct.length === 0 || !createdProduct[0]) {
+        tx.rollback();
+        return;
+      }
+
+      await tx.insert(prices).values({
+        productId: createdProduct[0].id,
+        buyPrice,
+        sellPrice,
+      });
     });
   },
-  delete: (id: Product["id"]) => {
+  update: (
+    productId: Product["id"],
+    { name, quantity, buyPrice, sellPrice }: NewOrUpdateProduct,
+    isPriceChange: boolean,
+  ) => {
     return db.transaction(async (tx) => {
-      await tx.delete(products).where(eq(products.id, id));
+      await tx
+        .update(products)
+        .set({ name, quantity, updatedAt: sql`current_timestamp` })
+        .where(eq(products.id, productId));
+
+      if (isPriceChange) {
+        await Promise.all([
+          tx
+            .update(prices)
+            .set({
+              buyPrice,
+              sellPrice,
+              validTo: sql`now()`,
+            })
+            .where(
+              and(eq(prices.productId, productId), isNull(prices.validTo)),
+            ),
+          tx
+            .insert(prices)
+            .values({
+              productId,
+              buyPrice,
+              sellPrice,
+            })
+            .onConflictDoNothing(),
+        ]);
+      }
     });
   },
   deleteBulk: (ids: Array<Product["id"]>) => {
     return db.transaction(async (tx) => {
-      await tx.delete(products).where(inArray(products.id, ids));
+      await tx
+        .update(products)
+        .set({ deletedAt: sql`now()` })
+        .where(inArray(products.id, ids));
     });
   },
 };

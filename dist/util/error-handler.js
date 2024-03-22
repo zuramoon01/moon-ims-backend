@@ -11,4 +11,4 @@ export const handleError = (error, message) => {
 const handleZodError = (error) => {
     console.log(error.format());
 };
-//# sourceMappingURL=error.js.map
+//# sourceMappingURL=error-handler.js.map
