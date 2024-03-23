@@ -10,7 +10,7 @@ export const products = pgTable("products", {
     updatedAt: timestamp("updated_at", { withTimezone: true })
         .notNull()
         .defaultNow(),
-    deletedAt: timestamp("updated_at", { withTimezone: true }).default(sql `NULL`),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }).default(sql `NULL`),
 });
 export const prices = pgTable("prices", {
     id: serial("id").primaryKey(),

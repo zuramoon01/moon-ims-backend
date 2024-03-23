@@ -19,7 +19,7 @@ export const products = pgTable("products", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-  deletedAt: timestamp("updated_at", { withTimezone: true }).default(sql`NULL`),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }).default(sql`NULL`),
 });
 
 export type Product = typeof products.$inferSelect;
