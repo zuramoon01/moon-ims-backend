@@ -2,6 +2,14 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../../database/index.js";
 import { products, prices, } from "./product.migration.js";
 export const productModel = {
+    search: async (search) => {
+        return await db.execute(sql `
+      SELECT id, name
+      FROM products
+      WHERE LOWER(products.name) LIKE LOWER('%${search}%')
+      ORDER BY products.name;
+    `);
+    },
     getAll: () => {
         return db
             .select({

@@ -164,7 +164,56 @@ export const transactionController = {
         }
       });
 
+      const querySchema = z.object({
+        page: z.coerce.number().min(1).default(1),
+        limit: z.coerce.number().min(1).max(25).default(15),
+      });
+
+      let { page, limit } = querySchema.parse(req.query);
+      let offset = (page - 1) * limit;
+
+      let [transactionsResult, totalTransaction] = await Promise.all([
+        db
+          .select()
+          .from(transactions)
+          .orderBy(desc(transactions.id))
+          .limit(limit)
+          .offset(offset),
+        db
+          .select({
+            total: sql<string>`count(*)`,
+          })
+          .from(transactions),
+      ]);
+
+      const total =
+        totalTransaction.length === 1 ? Number(totalTransaction[0]?.total) : 0;
+
+      // Cari produk dengan mengurangi page selama total produk tidak sama dengan 0 dan produk tidak ditemukan
+      if (total > 0 && transactionsResult.length === 0) {
+        while (offset >= total && offset !== 0) {
+          page -= 1;
+          offset = (page - 1) * limit;
+        }
+
+        transactionsResult = await db
+          .select()
+          .from(transactions)
+          .orderBy(desc(transactions.id))
+          .limit(limit)
+          .offset(offset);
+      }
+
       return res.status(HttpStatusCode.CREATED).json({
+        data: {
+          transactions: transactionsResult,
+          currentPage: page,
+          totalPage: Math.ceil(total / limit),
+          from: offset + 1,
+          to: Math.min(offset + limit, total),
+          limit,
+          total,
+        },
         message: "Berhasil melakukan transaksi pembelian.",
       });
     } catch (error) {

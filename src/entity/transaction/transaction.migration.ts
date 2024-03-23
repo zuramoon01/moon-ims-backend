@@ -14,7 +14,7 @@ export const transactions = pgTable("transactions", {
   code: varchar("code", { length: 16 }).notNull(),
   totalStock: smallint("total_stock").notNull(),
   totalPrice: integer("total_price").notNull(),
-  transactionDate: timestamp("created_at", { withTimezone: true })
+  transactionDate: timestamp("transaction_date", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });

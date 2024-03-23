@@ -1,6 +1,8 @@
 import z from "zod";
 import { productModel } from "./product.model.js";
 import { HttpStatusCode, handleError } from "../../util/index.js";
+import { db } from "database/database.js";
+import { sql } from "drizzle-orm";
 const getProductsWithConfig = async (req) => {
     const productQuerySchema = z.object({
         page: z.coerce.number().min(1).default(1),
@@ -41,6 +43,29 @@ const productParamsSchema = z.object({
     id: z.coerce.number(),
 });
 export const productController = {
+    search: async (req, res) => {
+        try {
+            const searchSchema = z.object({
+                text: z.string(),
+            });
+            const { text } = searchSchema.parse(req.query);
+            const { rows: products } = await db.execute(sql.raw(`
+          SELECT id, name, quantity
+          FROM products
+          WHERE products.deleted_at IS NULL AND LOWER(products.name) LIKE LOWER('%${text}%')
+          ORDER BY products.name;
+        `));
+            return res.status(HttpStatusCode.OK).json({
+                data: products,
+            });
+        }
+        catch (error) {
+            handleError(error, "productController.search");
+            return res.status(HttpStatusCode.BAD_REQUEST).json({
+                message: "Invalid Data.",
+            });
+        }
+    },
     get: async (req, res) => {
         try {
             const productsWithConfig = await getProductsWithConfig(req);
@@ -49,7 +74,7 @@ export const productController = {
             });
         }
         catch (error) {
-            handleError(error, "productController.getAll");
+            handleError(error, "productController.get");
             return res.status(HttpStatusCode.BAD_REQUEST).json({
                 message: "Invalid Data.",
             });
