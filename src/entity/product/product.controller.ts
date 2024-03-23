@@ -3,7 +3,7 @@ import z from "zod";
 import { productModel } from "./product.model.js";
 import { ProductsWithPageConfig } from "./product.migration.js";
 import { HttpStatusCode, handleError } from "../../util/index.js";
-import { db } from "database/database.js";
+import { db } from "../../database/index.js";
 import { sql } from "drizzle-orm";
 
 const getProductsWithConfig = async (

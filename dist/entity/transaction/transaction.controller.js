@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { desc, eq, like, sql } from "drizzle-orm";
-import { db } from "../../database/database.js";
+import { db } from "../../database/index.js";
 import { transactionDetails, transactions } from "./transaction.migration.js";
 import { prices, products } from "../product/index.js";
 import { HttpStatusCode, getCurrentDateInIndonesianFormat, handleError, } from "../../util/index.js";
