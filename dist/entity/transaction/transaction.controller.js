@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { desc, eq, like, sql } from "drizzle-orm";
+import { desc, eq, inArray, like, sql } from "drizzle-orm";
 import { db } from "../../database/index.js";
 import { transactionDetails, transactions } from "./transaction.migration.js";
 import { prices, products } from "../product/index.js";
@@ -91,7 +91,6 @@ export const transactionController = {
                     .where(like(transactions.code, `${currentPurchaseCode}%`))
                     .orderBy(desc(transactions.id));
                 if (results.length > 0 && results[0]) {
-                    console.log(results[0].code.slice(10));
                     currentPurchaseCodeOrder = `${currentPurchaseCode}${Number(results[0].code.slice(10)) + 1}`;
                 }
                 const transactionResult = await tx
@@ -195,7 +194,7 @@ export const transactionController = {
             });
             const { data } = bodySchema.parse(req.body);
             const totalQuantity = data.reduce((acc, product) => acc + product.quantity, 0);
-            db.transaction(async (tx) => {
+            const result = await db.transaction(async (tx) => {
                 let totalSellPriceProduct = 0;
                 for (const product of data) {
                     const productData = await tx
@@ -225,11 +224,11 @@ export const transactionController = {
                     .select({ code: transactions.code })
                     .from(transactions)
                     .where(like(transactions.code, `${currentSaleCode}%`))
-                    .orderBy(desc(transactions.code));
+                    .orderBy(desc(transactions.id));
                 if (results.length > 0 && results[0]) {
                     currentSaleCodeOrder = `${currentSaleCode}${Number(results[0].code.slice(10)) + 1}`;
                 }
-                const transaction = await tx
+                const transactionResult = await tx
                     .insert(transactions)
                     .values({
                     code: currentSaleCodeOrder,
@@ -238,7 +237,7 @@ export const transactionController = {
                 })
                     .onConflictDoNothing()
                     .returning({ id: transactions.id });
-                if (transaction.length === 0 || !transaction[0]) {
+                if (transactionResult.length === 0 || !transactionResult[0]) {
                     tx.rollback();
                     return;
                 }
@@ -252,7 +251,7 @@ export const transactionController = {
                         return;
                     }
                     await tx.insert(transactionDetails).values({
-                        transactionId: transaction[0].id,
+                        transactionId: transactionResult[0].id,
                         productId: product.id,
                         priceId: price[0].id,
                         stock: product.quantity,
@@ -263,13 +262,162 @@ export const transactionController = {
             WHERE id = ${product.id}
           `);
                 }
+                const querySchema = z.object({
+                    page: z.coerce.number().min(1).default(1),
+                    limit: z.coerce.number().min(1).max(25).default(15),
+                });
+                let { page, limit } = querySchema.parse(req.query);
+                let offset = (page - 1) * limit;
+                let [transactionsResult, totalTransaction] = await Promise.all([
+                    tx
+                        .select()
+                        .from(transactions)
+                        .orderBy(desc(transactions.id))
+                        .limit(limit)
+                        .offset(offset),
+                    tx
+                        .select({
+                        total: sql `count(*)`,
+                    })
+                        .from(transactions),
+                ]);
+                const total = totalTransaction.length === 1
+                    ? Number(totalTransaction[0]?.total)
+                    : 0;
+                // Cari produk dengan mengurangi page selama total produk tidak sama dengan 0 dan produk tidak ditemukan
+                if (total > 0 && transactionsResult.length === 0) {
+                    while (offset >= total && offset !== 0) {
+                        page -= 1;
+                        offset = (page - 1) * limit;
+                    }
+                    transactionsResult = await tx
+                        .select()
+                        .from(transactions)
+                        .orderBy(desc(transactions.id))
+                        .limit(limit)
+                        .offset(offset);
+                }
+                return {
+                    transactions: transactionsResult,
+                    currentPage: page,
+                    totalPage: Math.ceil(total / limit),
+                    from: offset + 1,
+                    to: Math.min(offset + limit, total),
+                    limit,
+                    total,
+                };
             });
             return res.status(HttpStatusCode.CREATED).json({
+                data: result,
                 message: "Berhasil melakukan transaksi penjualan.",
             });
         }
         catch (error) {
             handleError(error, "transactionController.get");
+            return res.status(HttpStatusCode.BAD_REQUEST).json({
+                message: "Invalid Data.",
+            });
+        }
+    },
+    deleteBulk: async (req, res) => {
+        try {
+            const bodySchema = z.object({
+                ids: z.array(z.number()),
+            });
+            const { ids } = bodySchema.parse(req.body);
+            const transactionsList = await db
+                .select()
+                .from(transactions)
+                .where(inArray(transactions.id, ids));
+            if (transactionsList.length === 0 ||
+                transactionsList.length !== ids.length) {
+                return res.status(HttpStatusCode.BAD_REQUEST).json({
+                    message: "Invalid Data.",
+                });
+            }
+            const { status, data } = await db.transaction(async (tx) => {
+                for (const transactionData of transactionsList) {
+                    const transactionDetailsResult = await tx
+                        .select()
+                        .from(transactionDetails)
+                        .where(eq(transactionDetails.transactionId, transactionData.id));
+                    if (transactionDetailsResult.length === 0) {
+                        tx.rollback();
+                        return {
+                            status: HttpStatusCode.BAD_REQUEST,
+                            data: {
+                                message: "Invalid Data.",
+                            },
+                        };
+                    }
+                    const typeTransaction = transactionData.code.slice(0, 2) === "PO" ? "-" : "+";
+                    for (const transactionDetailData of transactionDetailsResult) {
+                        await tx.execute(sql.raw(`
+                UPDATE products
+                SET quantity = quantity ${typeTransaction} ${transactionDetailData.stock}
+                WHERE id = ${transactionDetailData.productId};
+              `));
+                    }
+                    await tx
+                        .delete(transactionDetails)
+                        .where(eq(transactionDetails.transactionId, transactionData.id));
+                }
+                await tx.delete(transactions).where(inArray(transactions.id, ids));
+                const querySchema = z.object({
+                    page: z.coerce.number().min(1).default(1),
+                    limit: z.coerce.number().min(1).max(25).default(15),
+                });
+                let { page, limit } = querySchema.parse(req.query);
+                let offset = (page - 1) * limit;
+                let [transactionsResult, totalTransaction] = await Promise.all([
+                    tx
+                        .select()
+                        .from(transactions)
+                        .orderBy(desc(transactions.id))
+                        .limit(limit)
+                        .offset(offset),
+                    tx
+                        .select({
+                        total: sql `count(*)`,
+                    })
+                        .from(transactions),
+                ]);
+                const total = totalTransaction.length === 1
+                    ? Number(totalTransaction[0]?.total)
+                    : 0;
+                // Cari produk dengan mengurangi page selama total produk tidak sama dengan 0 dan produk tidak ditemukan
+                if (total > 0 && transactionsResult.length === 0) {
+                    while (offset >= total && offset !== 0) {
+                        page -= 1;
+                        offset = (page - 1) * limit;
+                    }
+                    transactionsResult = await tx
+                        .select()
+                        .from(transactions)
+                        .orderBy(desc(transactions.id))
+                        .limit(limit)
+                        .offset(offset);
+                }
+                return {
+                    status: HttpStatusCode.OK,
+                    data: {
+                        data: {
+                            transactions: transactionsResult,
+                            currentPage: page,
+                            totalPage: Math.ceil(total / limit),
+                            from: offset + 1,
+                            to: Math.min(offset + limit, total),
+                            limit,
+                            total,
+                        },
+                        message: "Berhasil menghapus transaksi.",
+                    },
+                };
+            });
+            return res.status(status).json(data);
+        }
+        catch (error) {
+            handleError(error, "Fungsi transactionController.deleteBulk");
             return res.status(HttpStatusCode.BAD_REQUEST).json({
                 message: "Invalid Data.",
             });
