@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { apiRouter } from "./route/index.js";
 import "dotenv/config";
 const { BACKEND_URL, FRONTEND_URL, PORT } = process.env;
@@ -8,6 +9,7 @@ app.use(cors({
     origin: [FRONTEND_URL],
     credentials: true,
 }));
+app.use(cookieParser());
 app.use(express.json());
 app.use("/api", apiRouter);
 app.listen(PORT, () => {
