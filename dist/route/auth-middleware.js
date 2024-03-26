@@ -3,7 +3,7 @@ import "dotenv/config";
 import { db } from "../database/index.js";
 import { users } from "../entity/index.js";
 import { eq } from "drizzle-orm";
-import { HttpStatusCode } from "util/http-status-code.js";
+import { HttpStatusCode } from "../util/index.js";
 const { JWT_KEY } = process.env;
 export const authMiddleware = async (req, res, next) => {
     try {

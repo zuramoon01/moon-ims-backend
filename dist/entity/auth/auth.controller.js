@@ -30,7 +30,6 @@ export const authController = {
             const token = jwt.sign({ user: { id: user[0].id, name: user[0].name } }, JWT_KEY, {
                 expiresIn: "1d",
             });
-            res.cookie("token", token);
             return res.status(HttpStatusCode.OK).json({
                 message: "Berhasil masuk.",
                 token,
