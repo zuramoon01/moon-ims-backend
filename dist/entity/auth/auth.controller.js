@@ -6,7 +6,7 @@ import { users } from "./auth.migration.js";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import "dotenv/config";
-const { JWT_KEY, FRONTEND_URL } = process.env;
+const { JWT_KEY } = process.env;
 export const authController = {
     login: async (req, res) => {
         try {
@@ -31,7 +31,6 @@ export const authController = {
                 expiresIn: "1d",
             });
             res.cookie("token", token, {
-                domain: FRONTEND_URL,
                 path: "/",
                 httpOnly: true,
                 sameSite: "strict",

@@ -8,9 +8,8 @@ import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import "dotenv/config";
 
-const { JWT_KEY, FRONTEND_URL } = process.env as {
+const { JWT_KEY } = process.env as {
   JWT_KEY: string;
-  FRONTEND_URL: string;
 };
 
 export const authController = {
@@ -48,7 +47,6 @@ export const authController = {
       );
 
       res.cookie("token", token, {
-        domain: FRONTEND_URL,
         path: "/",
         httpOnly: true,
         sameSite: "strict",
