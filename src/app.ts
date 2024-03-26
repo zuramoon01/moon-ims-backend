@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import cookieParser from "cookie-parser";
 import { apiRouter } from "./route/index.js";
 import "dotenv/config";
 
@@ -19,7 +18,6 @@ app.use(
   }),
 );
 
-app.use(cookieParser());
 app.use(express.json());
 
 app.use("/api", apiRouter);

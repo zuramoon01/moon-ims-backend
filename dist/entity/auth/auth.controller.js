@@ -30,13 +30,6 @@ export const authController = {
             const token = jwt.sign({ user: { id: user[0].id, name: user[0].name } }, JWT_KEY, {
                 expiresIn: "1d",
             });
-            res.cookie("token", token, {
-                path: "/",
-                httpOnly: true,
-                sameSite: "strict",
-                maxAge: 24 * 60 * 60 * 1000,
-                secure: true,
-            });
             return res.status(HttpStatusCode.OK).json({
                 message: "Berhasil masuk.",
                 token,
@@ -51,7 +44,6 @@ export const authController = {
     },
     logout: async (req, res) => {
         try {
-            res.clearCookie("token");
             return res.status(HttpStatusCode.OK).json({
                 message: "Berhasil keluar.",
             });

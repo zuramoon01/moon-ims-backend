@@ -46,14 +46,6 @@ export const authController = {
         },
       );
 
-      res.cookie("token", token, {
-        path: "/",
-        httpOnly: true,
-        sameSite: "strict",
-        maxAge: 24 * 60 * 60 * 1000,
-        secure: true,
-      });
-
       return res.status(HttpStatusCode.OK).json({
         message: "Berhasil masuk.",
         token,
@@ -68,8 +60,6 @@ export const authController = {
   },
   logout: async (req: Request, res: Response) => {
     try {
-      res.clearCookie("token");
-
       return res.status(HttpStatusCode.OK).json({
         message: "Berhasil keluar.",
       });

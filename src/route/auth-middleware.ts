@@ -16,7 +16,9 @@ export const authMiddleware = async (
   next: NextFunction,
 ) => {
   try {
-    const { token } = req.cookies;
+    const authorizationSplit = req.headers.authorization?.split(" ");
+
+    const token = authorizationSplit?.[1];
 
     if (!token) {
       throw new Error();
@@ -39,7 +41,6 @@ export const authMiddleware = async (
 
     next();
   } catch (err) {
-    res.clearCookie("token");
     res.status(HttpStatusCode.UNAUTHORIZED).json({ message: "Unauthorized" });
   }
 };
