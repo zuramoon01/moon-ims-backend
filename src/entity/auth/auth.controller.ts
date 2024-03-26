@@ -8,8 +8,9 @@ import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import "dotenv/config";
 
-const { JWT_KEY } = process.env as {
+const { JWT_KEY, FRONTEND_URL } = process.env as {
   JWT_KEY: string;
+  FRONTEND_URL: string;
 };
 
 export const authController = {
@@ -46,7 +47,14 @@ export const authController = {
         },
       );
 
-      res.cookie("token", token);
+      res.cookie("token", token, {
+        domain: FRONTEND_URL,
+        path: "/",
+        httpOnly: true,
+        sameSite: "strict",
+        maxAge: 24 * 60 * 60 * 1000,
+        secure: true,
+      });
 
       return res.status(HttpStatusCode.OK).json({
         message: "Berhasil masuk.",
