@@ -2,8 +2,13 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { desc, eq, inArray, like, sql } from "drizzle-orm";
 import { db } from "../../database/index.js";
-import { transactionDetails, transactions } from "./transaction.migration.js";
-import { prices, products } from "../product/index.js";
+import {
+  Transaction,
+  TransactionDetail,
+  transactionDetails,
+  transactions,
+} from "./transaction.migration.js";
+import { Price, Product, prices, products } from "../product/index.js";
 import {
   HttpStatusCode,
   getCurrentDateInIndonesianFormat,
@@ -25,7 +30,13 @@ export const transactionController = {
         db
           .select()
           .from(transactions)
-          .orderBy(desc(transactions.id))
+          .innerJoin(
+            transactionDetails,
+            eq(transactions.id, transactionDetails.transactionId),
+          )
+          .innerJoin(products, eq(transactionDetails.productId, products.id))
+          .innerJoin(prices, eq(transactionDetails.priceId, prices.id))
+          .orderBy(desc(transactions.transactionDate))
           .limit(limit)
           .offset(offset),
         db
@@ -48,14 +59,67 @@ export const transactionController = {
         transactionsResult = await db
           .select()
           .from(transactions)
-          .orderBy(desc(transactions.id))
+          .innerJoin(
+            transactionDetails,
+            eq(transactions.id, transactionDetails.transactionId),
+          )
+          .innerJoin(products, eq(transactionDetails.productId, products.id))
+          .innerJoin(prices, eq(transactionDetails.priceId, prices.id))
+          .orderBy(desc(transactions.transactionDate))
           .limit(limit)
           .offset(offset);
       }
 
+      type Data = Transaction & {
+        transactionDetails: Array<
+          Pick<TransactionDetail, "id" | "stock"> & {
+            product: Pick<Product, "name" | "quantity">;
+            price: Pick<Price, "buyPrice" | "sellPrice">;
+          }
+        >;
+      };
+
+      const data = Object.entries(
+        transactionsResult.reduce<Record<number, Data>>((acc, rows) => {
+          const {
+            transactions: transaction,
+            transaction_details,
+            products,
+            prices,
+          } = rows;
+          console.log(transaction);
+
+          const { id, stock } = transaction_details;
+          const { name, quantity } = products;
+          const { buyPrice, sellPrice } = prices;
+
+          if (!acc[transaction.id]) {
+            acc[transaction.id] = { ...transaction, transactionDetails: [] };
+          }
+
+          if (transaction_details && products && prices) {
+            acc[transaction.id]!.transactionDetails.push({
+              id,
+              stock,
+              product: {
+                name,
+                quantity,
+              },
+              price: { buyPrice, sellPrice },
+            });
+          }
+
+          return acc;
+        }, {}),
+      )
+        .map(([_, value]) => {
+          return value;
+        })
+        .sort((a, b) => b.id - a.id);
+
       return res.status(HttpStatusCode.OK).json({
         data: {
-          transactions: transactionsResult,
+          transactions: data,
           currentPage: page,
           totalPage: Math.ceil(total / limit),
           from: offset + 1,
@@ -117,7 +181,7 @@ export const transactionController = {
           .select({ code: transactions.code })
           .from(transactions)
           .where(like(transactions.code, `${currentPurchaseCode}%`))
-          .orderBy(desc(transactions.id));
+          .orderBy(desc(transactions.transactionDate));
 
         if (results.length > 0 && results[0]) {
           currentPurchaseCodeOrder = `${currentPurchaseCode}${Number(results[0].code.slice(10)) + 1}`;
@@ -175,7 +239,13 @@ export const transactionController = {
           tx
             .select()
             .from(transactions)
-            .orderBy(desc(transactions.id))
+            .innerJoin(
+              transactionDetails,
+              eq(transactions.id, transactionDetails.transactionId),
+            )
+            .innerJoin(products, eq(transactionDetails.productId, products.id))
+            .innerJoin(prices, eq(transactionDetails.priceId, prices.id))
+            .orderBy(desc(transactions.transactionDate))
             .limit(limit)
             .offset(offset),
           tx
@@ -200,13 +270,70 @@ export const transactionController = {
           transactionsResult = await tx
             .select()
             .from(transactions)
-            .orderBy(desc(transactions.id))
+            .innerJoin(
+              transactionDetails,
+              eq(transactions.id, transactionDetails.transactionId),
+            )
+            .innerJoin(products, eq(transactionDetails.productId, products.id))
+            .innerJoin(prices, eq(transactionDetails.priceId, prices.id))
+            .orderBy(desc(transactions.transactionDate))
             .limit(limit)
             .offset(offset);
         }
 
+        type FormattedTransactionResult = Transaction & {
+          transactionDetails: Array<
+            Pick<TransactionDetail, "id" | "stock"> & {
+              product: Pick<Product, "name" | "quantity">;
+              price: Pick<Price, "buyPrice" | "sellPrice">;
+            }
+          >;
+        };
+
+        const formattedTransactionResult = Object.entries(
+          transactionsResult.reduce<Record<number, FormattedTransactionResult>>(
+            (acc, rows) => {
+              const {
+                transactions: transaction,
+                transaction_details,
+                products,
+                prices,
+              } = rows;
+              const { id, stock } = transaction_details;
+              const { name, quantity } = products;
+              const { buyPrice, sellPrice } = prices;
+
+              if (!acc[transaction.id]) {
+                acc[transaction.id] = {
+                  ...transaction,
+                  transactionDetails: [],
+                };
+              }
+
+              if (transaction_details && products && prices) {
+                acc[transaction.id]!.transactionDetails.push({
+                  id,
+                  stock,
+                  product: {
+                    name,
+                    quantity,
+                  },
+                  price: { buyPrice, sellPrice },
+                });
+              }
+
+              return acc;
+            },
+            {},
+          ),
+        )
+          .map(([_, value]) => {
+            return value;
+          })
+          .sort((a, b) => b.id - a.id);
+
         return {
-          transactions: transactionsResult,
+          transactions: formattedTransactionResult,
           currentPage: page,
           totalPage: Math.ceil(total / limit),
           from: offset + 1,
@@ -287,7 +414,7 @@ export const transactionController = {
           .select({ code: transactions.code })
           .from(transactions)
           .where(like(transactions.code, `${currentSaleCode}%`))
-          .orderBy(desc(transactions.id));
+          .orderBy(desc(transactions.transactionDate));
 
         if (results.length > 0 && results[0]) {
           currentSaleCodeOrder = `${currentSaleCode}${Number(results[0].code.slice(10)) + 1}`;
@@ -345,7 +472,13 @@ export const transactionController = {
           tx
             .select()
             .from(transactions)
-            .orderBy(desc(transactions.id))
+            .innerJoin(
+              transactionDetails,
+              eq(transactions.id, transactionDetails.transactionId),
+            )
+            .innerJoin(products, eq(transactionDetails.productId, products.id))
+            .innerJoin(prices, eq(transactionDetails.priceId, prices.id))
+            .orderBy(desc(transactions.transactionDate))
             .limit(limit)
             .offset(offset),
           tx
@@ -370,13 +503,70 @@ export const transactionController = {
           transactionsResult = await tx
             .select()
             .from(transactions)
-            .orderBy(desc(transactions.id))
+            .innerJoin(
+              transactionDetails,
+              eq(transactions.id, transactionDetails.transactionId),
+            )
+            .innerJoin(products, eq(transactionDetails.productId, products.id))
+            .innerJoin(prices, eq(transactionDetails.priceId, prices.id))
+            .orderBy(desc(transactions.transactionDate))
             .limit(limit)
             .offset(offset);
         }
 
+        type FormattedTransactionResult = Transaction & {
+          transactionDetails: Array<
+            Pick<TransactionDetail, "id" | "stock"> & {
+              product: Pick<Product, "name" | "quantity">;
+              price: Pick<Price, "buyPrice" | "sellPrice">;
+            }
+          >;
+        };
+
+        const formattedTransactionResult = Object.entries(
+          transactionsResult.reduce<Record<number, FormattedTransactionResult>>(
+            (acc, rows) => {
+              const {
+                transactions: transaction,
+                transaction_details,
+                products,
+                prices,
+              } = rows;
+              const { id, stock } = transaction_details;
+              const { name, quantity } = products;
+              const { buyPrice, sellPrice } = prices;
+
+              if (!acc[transaction.id]) {
+                acc[transaction.id] = {
+                  ...transaction,
+                  transactionDetails: [],
+                };
+              }
+
+              if (transaction_details && products && prices) {
+                acc[transaction.id]!.transactionDetails.push({
+                  id,
+                  stock,
+                  product: {
+                    name,
+                    quantity,
+                  },
+                  price: { buyPrice, sellPrice },
+                });
+              }
+
+              return acc;
+            },
+            {},
+          ),
+        )
+          .map(([_, value]) => {
+            return value;
+          })
+          .sort((a, b) => b.id - a.id);
+
         return {
-          transactions: transactionsResult,
+          transactions: formattedTransactionResult,
           currentPage: page,
           totalPage: Math.ceil(total / limit),
           from: offset + 1,
@@ -469,7 +659,13 @@ export const transactionController = {
           tx
             .select()
             .from(transactions)
-            .orderBy(desc(transactions.id))
+            .innerJoin(
+              transactionDetails,
+              eq(transactions.id, transactionDetails.transactionId),
+            )
+            .innerJoin(products, eq(transactionDetails.productId, products.id))
+            .innerJoin(prices, eq(transactionDetails.priceId, prices.id))
+            .orderBy(desc(transactions.transactionDate))
             .limit(limit)
             .offset(offset),
           tx
@@ -494,16 +690,73 @@ export const transactionController = {
           transactionsResult = await tx
             .select()
             .from(transactions)
-            .orderBy(desc(transactions.id))
+            .innerJoin(
+              transactionDetails,
+              eq(transactions.id, transactionDetails.transactionId),
+            )
+            .innerJoin(products, eq(transactionDetails.productId, products.id))
+            .innerJoin(prices, eq(transactionDetails.priceId, prices.id))
+            .orderBy(desc(transactions.transactionDate))
             .limit(limit)
             .offset(offset);
         }
+
+        type FormattedTransactionResult = Transaction & {
+          transactionDetails: Array<
+            Pick<TransactionDetail, "id" | "stock"> & {
+              product: Pick<Product, "name" | "quantity">;
+              price: Pick<Price, "buyPrice" | "sellPrice">;
+            }
+          >;
+        };
+
+        const formattedTransactionResult = Object.entries(
+          transactionsResult.reduce<Record<number, FormattedTransactionResult>>(
+            (acc, rows) => {
+              const {
+                transactions: transaction,
+                transaction_details,
+                products,
+                prices,
+              } = rows;
+              const { id, stock } = transaction_details;
+              const { name, quantity } = products;
+              const { buyPrice, sellPrice } = prices;
+
+              if (!acc[transaction.id]) {
+                acc[transaction.id] = {
+                  ...transaction,
+                  transactionDetails: [],
+                };
+              }
+
+              if (transaction_details && products && prices) {
+                acc[transaction.id]!.transactionDetails.push({
+                  id,
+                  stock,
+                  product: {
+                    name,
+                    quantity,
+                  },
+                  price: { buyPrice, sellPrice },
+                });
+              }
+
+              return acc;
+            },
+            {},
+          ),
+        )
+          .map(([_, value]) => {
+            return value;
+          })
+          .sort((a, b) => b.id - a.id);
 
         return {
           status: HttpStatusCode.OK,
           data: {
             data: {
-              transactions: transactionsResult,
+              transactions: formattedTransactionResult,
               currentPage: page,
               totalPage: Math.ceil(total / limit),
               from: offset + 1,
