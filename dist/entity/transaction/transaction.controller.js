@@ -142,7 +142,7 @@ export const transactionController = {
                     const price = await tx
                         .select()
                         .from(prices)
-                        .where(eq(prices.productId, product.id));
+                        .where(and(isNull(prices.validTo), eq(prices.productId, product.id)));
                     if (price.length === 0 || !price[0]) {
                         tx.rollback();
                         return;
@@ -311,7 +311,7 @@ export const transactionController = {
                     const price = await tx
                         .select()
                         .from(prices)
-                        .where(eq(prices.productId, product.id));
+                        .where(and(isNull(prices.validTo), eq(prices.productId, product.id)));
                     if (price.length === 0 || !price[0]) {
                         tx.rollback();
                         return;
