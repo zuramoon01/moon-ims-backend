@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { desc, eq, inArray, like, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, like, sql } from "drizzle-orm";
 import { db } from "../../database/index.js";
 import { transactionDetails, transactions, } from "./transaction.migration.js";
 import { prices, products } from "../product/index.js";
@@ -107,7 +107,7 @@ export const transactionController = {
                     const price = await tx
                         .select()
                         .from(prices)
-                        .where(eq(prices.productId, product.id));
+                        .where(and(isNull(prices.validTo), eq(prices.productId, product.id)));
                     if (price.length === 0 || !price[0]) {
                         tx.rollback();
                         return;
@@ -276,7 +276,7 @@ export const transactionController = {
                     const price = await tx
                         .select()
                         .from(prices)
-                        .where(eq(prices.productId, product.id));
+                        .where(and(isNull(prices.validTo), eq(prices.productId, product.id)));
                     if (price.length === 0 || !price[0]) {
                         tx.rollback();
                         return;
