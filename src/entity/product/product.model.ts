@@ -123,8 +123,6 @@ export const productModel = {
           tx
             .update(prices)
             .set({
-              buyPrice,
-              sellPrice,
               validTo: sql`now()`,
             })
             .where(
