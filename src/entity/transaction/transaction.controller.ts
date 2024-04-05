@@ -149,6 +149,12 @@ export const transactionController = {
 
       const { data } = bodySchema.parse(req.body);
 
+      if (data.length === 0) {
+        return res.status(HttpStatusCode.BAD_REQUEST).json({
+          message: "Tidak ada produk untuk melakukan transaksi.",
+        });
+      }
+
       const totalQuantity = data.reduce(
         (acc, product) => acc + product.quantity,
         0,
@@ -371,6 +377,12 @@ export const transactionController = {
       });
 
       const { data } = bodySchema.parse(req.body);
+
+      if (data.length === 0) {
+        return res.status(HttpStatusCode.BAD_REQUEST).json({
+          message: "Tidak ada produk untuk melakukan transaksi.",
+        });
+      }
 
       const totalQuantity = data.reduce(
         (acc, product) => acc + product.quantity,
