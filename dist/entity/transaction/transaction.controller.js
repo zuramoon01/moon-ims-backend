@@ -99,12 +99,13 @@ export const transactionController = {
                     quantity: z.number(),
                 })),
             });
-            const { data } = bodySchema.parse(req.body);
+            let { data } = bodySchema.parse(req.body);
             if (data.length === 0) {
                 return res.status(HttpStatusCode.BAD_REQUEST).json({
                     message: "Tidak ada produk untuk melakukan transaksi.",
                 });
             }
+            data = data.filter(({ quantity }) => quantity > 0);
             const totalQuantity = data.reduce((acc, product) => acc + product.quantity, 0);
             const result = await db.transaction(async (tx) => {
                 let totalBuyPriceProduct = 0;
